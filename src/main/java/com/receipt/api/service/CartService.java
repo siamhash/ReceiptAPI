@@ -1,10 +1,12 @@
 package com.receipt.api.service;
 
 
+import com.receipt.api.controllers.dto.CartSummaryDTO;
 import com.receipt.api.data.operations.CartDB;
 import com.receipt.api.data.operations.CouponDB;
 import com.receipt.api.models.Coupon;
 import com.receipt.api.models.Item;
+import com.receipt.api.utils.NumberOperations;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -54,15 +56,13 @@ public class CartService {
         BigDecimal totalDiscounts = BigDecimal.ZERO;
 
         for (Coupon coupon : coupons) {
-            totalDiscounts = totalDiscounts.add(coupon.getDiscountPrice());
+            Integer appliedSku = coupon.getAppliedSku();
+            BigDecimal discount = isCouponAppliedSkuInCart(appliedSku)? coupon.getDiscountPrice(): BigDecimal.ZERO;
+            totalDiscounts = totalDiscounts.add(discount);
         }
         return totalDiscounts;
     }
 
-
-    /*
-     * assuming that all the discounted products are available in the cart
-     * */
     public BigDecimal findSubTotalAfterDiscount() {
         return findSubTotalBeforeDiscount().subtract(findTotalDiscounts());
     }
@@ -113,5 +113,29 @@ public class CartService {
             return matchingCoupon.getDiscountPrice();
         }
         return BigDecimal.ZERO;
+    }
+
+    private boolean isCouponAppliedSkuInCart(int appliedSku){
+
+        Item foundItem = items.stream()
+                .filter(item -> item.getSku() == appliedSku)
+                .findFirst()
+                .orElse(null);
+
+        return foundItem == null? false: true;
+    }
+
+    public CartSummaryDTO createCartSummaryDTO(){
+
+        CartSummaryDTO cartSummaryDTO = new CartSummaryDTO();
+
+        cartSummaryDTO.setSubTotalBeforeDiscount(NumberOperations.formatData(findSubTotalBeforeDiscount()));
+        cartSummaryDTO.setDiscountTotal(NumberOperations.formatData(findTotalDiscounts()));
+        cartSummaryDTO.setSubtotalAfterDiscount(NumberOperations.formatData(findSubTotalAfterDiscount()));
+        cartSummaryDTO.setTaxableSubtotalAfterDiscount(NumberOperations.formatData(findTaxableSubTotalAfterDiscounts()));
+        cartSummaryDTO.setTotalTax(NumberOperations.formatData(findTotalTax()));
+        cartSummaryDTO.setGrandTotal(NumberOperations.formatData(findGrandTotal()));
+
+        return cartSummaryDTO;
     }
 }
